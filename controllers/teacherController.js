@@ -2,10 +2,12 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const Teacher = require('../models/Teacher');
 
+// Generate token function
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
+// Register teacher
 exports.registerTeacher = async (req, res) => {
   const { name, email, password, number, dateOfBirth, departments, classes } = req.body;
 
@@ -47,6 +49,7 @@ exports.registerTeacher = async (req, res) => {
   }
 };
 
+// Authenticate teacher
 exports.authTeacher = async (req, res) => {
   const { email, password } = req.body;
 
@@ -71,4 +74,117 @@ exports.authTeacher = async (req, res) => {
     console.error('Error during authentication:', error);
     res.status(500).json({ message: 'Server error' });
   }
+};
+
+// Update teacher profile
+exports.updateTeacher = async (req, res) => {
+  const { name, email, number, dateOfBirth, departments, classes } = req.body;
+
+  try {
+    const teacher = await Teacher.findById(req.user._id);
+
+    if (!teacher) {
+      return res.status(404).json({ message: 'Teacher not found' });
+    }
+
+    teacher.name = name || teacher.name;
+    teacher.email = email || teacher.email;
+    teacher.number = number || teacher.number;
+    teacher.dateOfBirth = dateOfBirth || teacher.dateOfBirth;
+    teacher.departments = departments || teacher.departments;
+    teacher.classes = classes || teacher.classes;
+
+    await teacher.save();
+
+    res.json({
+      _id: teacher._id,
+      name: teacher.name,
+      email: teacher.email,
+      number: teacher.number,
+      dateOfBirth: teacher.dateOfBirth,
+      departments: teacher.departments,
+      classes: teacher.classes,
+    });
+  } catch (error) {
+    console.error('Error updating teacher:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Delete teacher account
+exports.deleteTeacher = async (req, res) => {
+  try {
+    const teacher = await Teacher.findById(req.user._id);
+
+    if (!teacher) {
+      return res.status(404).json({ message: 'Teacher not found' });
+    }
+
+    await teacher.remove();
+
+    res.json({ message: 'Teacher removed' });
+  } catch (error) {
+    console.error('Error deleting teacher:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Add new class
+exports.addClass = async (req, res) => {
+  const { className, schedule } = req.body;
+
+  try {
+    const teacher = await Teacher.findById(req.user._id);
+
+    if (!teacher) {
+      return res.status(404).json({ message: 'Teacher not found' });
+    }
+
+    teacher.classes.push({ className, schedule });
+
+    await teacher.save();
+
+    res.json(teacher.classes);
+  } catch (error) {
+    console.error('Error adding class:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get teacher by ID
+exports.getTeacherById = async (req, res) => {
+    const { id } = req.params;
+  
+    try {
+      const teacher = await Teacher.findById(id);
+  
+      if (!teacher) {
+        return res.status(404).json({ message: 'Teacher not found' });
+      }
+  
+      res.json({
+        _id: teacher._id,
+        name: teacher.name,
+        email: teacher.email,
+        number: teacher.number,
+        dateOfBirth: teacher.dateOfBirth,
+        departments: teacher.departments,
+        classes: teacher.classes,
+      });
+    } catch (error) {
+      console.error('Error fetching teacher by ID:', error);
+      res.status(500).json({ message: 'Server error' });
+    }
+  };
+  
+// Get all teachers
+exports.getAllTeachers = async (req, res) => {
+    try {
+        const teachers = await Teacher.find();
+
+        res.json(teachers);
+    } catch (error) {
+        console.error('Error fetching all teachers:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
 };
