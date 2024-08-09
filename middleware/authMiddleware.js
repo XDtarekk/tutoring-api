@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const Student = require('../models/Student');
+const Teacher = require('../models/Teacher');
 
 const protect = async (req, res, next) => {
   let token;
@@ -9,16 +10,25 @@ const protect = async (req, res, next) => {
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-      req.user = await User.findById(decoded.id).select('-passwordHash');
+      // Try to find the user in both Student and Teacher collections
+      let user = await Student.findById(decoded.id).select('-passwordHash');
+      
+      if (!user) {
+        user = await Teacher.findById(decoded.id).select('-passwordHash');
+      }
 
-      next();
+      if (user) {
+        req.user = user;
+        next();
+      } else {
+        res.status(401).json({ message: 'Not authorized, no user found' });
+      }
+      
     } catch (error) {
       console.error(error);
       res.status(401).json({ message: 'Not authorized, token failed' });
     }
-  }
-
-  if (!token) {
+  } else {
     res.status(401).json({ message: 'Not authorized, no token' });
   }
 };
