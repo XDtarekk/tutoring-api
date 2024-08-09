@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const Teacher = require('../models/Teacher');
+const Class = require('../models/Class');
 
 // Generate token function
 const generateToken = (id) => {
@@ -9,7 +10,7 @@ const generateToken = (id) => {
 
 // Register teacher
 exports.registerTeacher = async (req, res) => {
-  const { name, email, password, number, dateOfBirth, departments, classes } = req.body;
+  const { name, email, password, number, dateOfBirth, departments } = req.body;
 
   try {
     const teacherExists = await Teacher.findOne({ email });
@@ -28,7 +29,6 @@ exports.registerTeacher = async (req, res) => {
       dateOfBirth,
       passwordHash: hashedPassword,
       departments,
-      classes,
     });
 
     await teacher.save();
@@ -78,7 +78,7 @@ exports.authTeacher = async (req, res) => {
 
 // Update teacher profile
 exports.updateTeacher = async (req, res) => {
-  const { name, email, number, dateOfBirth, departments, classes } = req.body;
+  const { name, email, number, dateOfBirth, departments } = req.body;
 
   try {
     const teacher = await Teacher.findById(req.user._id);
@@ -92,7 +92,6 @@ exports.updateTeacher = async (req, res) => {
     teacher.number = number || teacher.number;
     teacher.dateOfBirth = dateOfBirth || teacher.dateOfBirth;
     teacher.departments = departments || teacher.departments;
-    teacher.classes = classes || teacher.classes;
 
     await teacher.save();
 
@@ -131,7 +130,7 @@ exports.deleteTeacher = async (req, res) => {
 
 // Add new class
 exports.addClass = async (req, res) => {
-  const { className, schedule } = req.body;
+  const { className, schedule, categoryId } = req.body;
 
   try {
     const teacher = await Teacher.findById(req.user._id);
@@ -140,11 +139,19 @@ exports.addClass = async (req, res) => {
       return res.status(404).json({ message: 'Teacher not found' });
     }
 
-    teacher.classes.push({ className, schedule });
+    const newClass = new Class({
+      name: className,
+      schedule,
+      teacher: teacher._id,
+      category: categoryId,
+    });
 
+    await newClass.save();
+
+    teacher.classes.push(newClass._id);
     await teacher.save();
 
-    res.json(teacher.classes);
+    res.status(201).json(newClass);
   } catch (error) {
     console.error('Error adding class:', error);
     res.status(500).json({ message: 'Server error' });
@@ -153,38 +160,38 @@ exports.addClass = async (req, res) => {
 
 // Get teacher by ID
 exports.getTeacherById = async (req, res) => {
-    const { id } = req.params;
-  
-    try {
-      const teacher = await Teacher.findById(id);
-  
-      if (!teacher) {
-        return res.status(404).json({ message: 'Teacher not found' });
-      }
-  
-      res.json({
-        _id: teacher._id,
-        name: teacher.name,
-        email: teacher.email,
-        number: teacher.number,
-        dateOfBirth: teacher.dateOfBirth,
-        departments: teacher.departments,
-        classes: teacher.classes,
-      });
-    } catch (error) {
-      console.error('Error fetching teacher by ID:', error);
-      res.status(500).json({ message: 'Server error' });
+  const { id } = req.params;
+
+  try {
+    const teacher = await Teacher.findById(id).populate('classes');
+
+    if (!teacher) {
+      return res.status(404).json({ message: 'Teacher not found' });
     }
-  };
-  
+
+    res.json({
+      _id: teacher._id,
+      name: teacher.name,
+      email: teacher.email,
+      number: teacher.number,
+      dateOfBirth: teacher.dateOfBirth,
+      departments: teacher.departments,
+      classes: teacher.classes,
+    });
+  } catch (error) {
+    console.error('Error fetching teacher by ID:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 // Get all teachers
 exports.getAllTeachers = async (req, res) => {
-    try {
-        const teachers = await Teacher.find();
+  try {
+    const teachers = await Teacher.find().populate('classes');
 
-        res.json(teachers);
-    } catch (error) {
-        console.error('Error fetching all teachers:', error);
-        res.status(500).json({ message: 'Server error' });
-    }
+    res.json(teachers);
+  } catch (error) {
+    console.error('Error fetching all teachers:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
 };
